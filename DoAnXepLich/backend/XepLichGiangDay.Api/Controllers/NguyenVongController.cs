@@ -22,6 +22,33 @@ public class NguyenVongController(NguyenVongService service) : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost]
+    public async Task<ActionResult<NguyenVongDto>> ThemNguyenVong([FromBody] ThemNguyenVongDto dto)
+    {
+        if (dto.MaHocKy <= 0 || dto.MaGiangVien <= 0)
+        {
+            return BadRequest("Mã học kỳ và mã giảng viên không hợp lệ.");
+        }
+
+        var result = await service.ThemNguyenVongAsync(dto);
+        if (result is null)
+        {
+            return BadRequest("Không thể thêm nguyện vọng.");
+        }
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> XoaNguyenVong(int id)
+    {
+        var success = await service.XoaNguyenVongAsync(id);
+        if (!success)
+        {
+            return NotFound("Không tìm thấy nguyện vọng cần xóa.");
+        }
+        return Ok(new { Message = "Đã xóa nguyện vọng thành công." });
+    }
+
     [HttpPost("luu-ma-tran")]
     public async Task<IActionResult> LuuMaTran([FromBody] LuuMaTranNguyenVongRequest request)
     {
@@ -34,3 +61,4 @@ public class NguyenVongController(NguyenVongService service) : ControllerBase
         return success ? Ok(new { Message = "Lưu lịch bận và nguyện vọng thành công." }) : BadRequest("Không thể lưu thông tin.");
     }
 }
+

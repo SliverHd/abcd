@@ -35,20 +35,105 @@ public class NguyenVongService(AppDbContext context)
             query = query.Where(x => x.MaGiangVien == maGiangVien.Value);
         }
 
-        return await query.Select(x => new NguyenVongDto
+        var danhSach = await query.ToListAsync();
+        var dsGvId = danhSach.Select(x => x.MaGiangVien).Distinct().ToList();
+        var dsGiangVien = await context.GiangVien
+            .Where(x => dsGvId.Contains(x.MaGiangVien))
+            .ToDictionaryAsync(x => x.MaGiangVien);
+
+        return danhSach.Select(x =>
         {
-            MaNguyenVong = x.MaNguyenVong,
-            MaGiangVien = x.MaGiangVien,
-            MaHocKy = x.MaHocKy,
-            LoaiNguyenVong = x.LoaiNguyenVong,
-            MucDo = x.MucDo,
-            Thu = x.Thu,
-            TietBatDau = x.TietBatDau,
-            TietKetThuc = x.TietKetThuc,
-            TrongSoPhat = x.TrongSoPhat,
-            NoiDungGoc = x.NoiDungGoc
-        }).ToListAsync();
+            dsGiangVien.TryGetValue(x.MaGiangVien, out var gv);
+            var (maRb, tenRb) = PhanTichMaRangBuoc(x.LoaiNguyenVong, x.NoiDungGoc);
+            return new NguyenVongDto
+            {
+                MaNguyenVong = x.MaNguyenVong,
+                MaGiangVien = x.MaGiangVien,
+                TenGiangVien = gv?.HoTen ?? $"GV #{x.MaGiangVien}",
+                MaHocKy = x.MaHocKy,
+                MaRangBuocMem = maRb,
+                TenRangBuocMem = tenRb,
+                LoaiNguyenVong = x.LoaiNguyenVong,
+                MucDo = x.MucDo,
+                Thu = x.Thu,
+                TietBatDau = x.TietBatDau,
+                TietKetThuc = x.TietKetThuc,
+                TrongSoPhat = x.TrongSoPhat,
+                NoiDungGoc = x.NoiDungGoc,
+                LyDo = x.NoiDungGoc
+            };
+        }).OrderBy(x => x.TenGiangVien).ThenBy(x => x.Thu).ThenBy(x => x.TietBatDau).ToList();
     }
+
+    public async Task<NguyenVongDto?> ThemNguyenVongAsync(ThemNguyenVongDto dto)
+    {
+        if (dto.MaHocKy <= 0 || dto.MaGiangVien <= 0) return null;
+
+        var entity = new NguyenVongGiangVien
+        {
+            MaGiangVien = dto.MaGiangVien,
+            MaHocKy = dto.MaHocKy,
+            LoaiNguyenVong = string.IsNullOrWhiteSpace(dto.MaRangBuocMem) ? "SC01" : dto.MaRangBuocMem.Trim(),
+            MucDo = 1,
+            Thu = dto.Thu,
+            TietBatDau = dto.TietBatDau,
+            TietKetThuc = dto.TietKetThuc,
+            TrongSoPhat = dto.TrongSoPhat > 0 ? dto.TrongSoPhat : 10.0,
+            NoiDungGoc = dto.LyDo?.Trim()
+        };
+
+        context.NguyenVongGiangVien.Add(entity);
+        await context.SaveChangesAsync();
+
+        var gv = await context.GiangVien.FindAsync(dto.MaGiangVien);
+        var (maRb, tenRb) = PhanTichMaRangBuoc(entity.LoaiNguyenVong, entity.NoiDungGoc);
+
+        return new NguyenVongDto
+        {
+            MaNguyenVong = entity.MaNguyenVong,
+            MaGiangVien = entity.MaGiangVien,
+            TenGiangVien = gv?.HoTen ?? $"GV #{entity.MaGiangVien}",
+            MaHocKy = entity.MaHocKy,
+            MaRangBuocMem = maRb,
+            TenRangBuocMem = tenRb,
+            LoaiNguyenVong = entity.LoaiNguyenVong,
+            MucDo = entity.MucDo,
+            Thu = entity.Thu,
+            TietBatDau = entity.TietBatDau,
+            TietKetThuc = entity.TietKetThuc,
+            TrongSoPhat = entity.TrongSoPhat,
+            NoiDungGoc = entity.NoiDungGoc,
+            LyDo = entity.NoiDungGoc
+        };
+    }
+
+    public async Task<bool> XoaNguyenVongAsync(int maNguyenVong)
+    {
+        var item = await context.NguyenVongGiangVien.FindAsync(maNguyenVong);
+        if (item is null) return false;
+
+        context.NguyenVongGiangVien.Remove(item);
+        await context.SaveChangesAsync();
+        return true;
+    }
+
+    public static (string MaRb, string TenRb) PhanTichMaRangBuoc(string? loai, string? noiDung)
+    {
+        if (string.IsNullOrWhiteSpace(loai)) return ("SC01", "Tránh khung giờ / tiết bận");
+
+        return loai.Trim() switch
+        {
+            "SC01" or "TranhDay" => ("SC01", "Tránh khung giờ / tiết bận"),
+            "SC02" => ("SC02", "Tránh dạy ca tối (Tiết 10 - 12)"),
+            "SC03" => ("SC03", "Tránh dạy ngày Thứ Bảy / Chủ Nhật"),
+            "SC04" or "ThichDay" => ("SC04", "Ưu tiên dạy buổi sáng (Tiết 1 - 6)"),
+            "SC05" => ("SC05", "Ưu tiên dạy buổi chiều (Tiết 7 - 12)"),
+            "SC06" => ("SC06", "Giới hạn số tiết tối đa / ngày"),
+            "SC07" => ("SC07", "Hạn chế số ngày dạy trong tuần (gom lịch)"),
+            _ => (loai, "Nguyện vọng giảng viên")
+        };
+    }
+
 
     public async Task<bool> LuuMaTranAsync(LuuMaTranNguyenVongRequest request)
     {
