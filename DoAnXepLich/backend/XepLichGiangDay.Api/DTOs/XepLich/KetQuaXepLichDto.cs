@@ -17,4 +17,11 @@ public class KetQuaXepLichDto
     public List<double> LichSuDiemPhatTheoTheHe { get; set; } = [];
     public List<string> DanhSachViPham { get; set; } = [];
     public List<PhanCongDto> DanhSachPhanCong { get; set; } = [];
+
+    // Chỉ số hiệu năng và thống kê thuật toán CP-SAT
+    public double ThoiGianChayGiay { get; set; }
+    public int SoLuongBien { get; set; }
+    public int SoLuongRangBuoc { get; set; }
+    public string ThongDiep { get; set; } = string.Empty;
+    public List<string> ChiTietViPham { get; set; } = [];
 }

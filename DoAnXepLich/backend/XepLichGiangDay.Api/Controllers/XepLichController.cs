@@ -29,7 +29,10 @@ public class XepLichController(
             KichThuocQuanThe = request.KichThuocQuanThe,
             SoTheHe = request.SoTheHe,
             TyLeLaiGhep = request.TyLeLaiGhep,
-            TyLeDotBien = request.TyLeDotBien
+            TyLeDotBien = request.TyLeDotBien,
+            ThoiGianChayToiDa = request.ThoiGianChayToiDa,
+            SoLuongWorker = request.SoLuongWorker,
+            KhoangCachToiUuGap = request.KhoangCachToiUuGap
         };
 
         var ketQua = await algorithm.ChayAsync(duLieu, cancellationToken);

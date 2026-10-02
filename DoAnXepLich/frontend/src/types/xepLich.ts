@@ -5,6 +5,8 @@ export interface YeuCauXepLich {
   soTheHe?: number
   tyLeLaiGhep?: number
   tyLeDotBien?: number
+  thoiGianChayToiDa?: number
+  soLuongWorker?: number
 }
 
 export interface PhanCong {
@@ -30,6 +32,11 @@ export interface KetQuaXepLich {
   lichSuDiemPhatTheoTheHe?: number[]
   danhSachViPham?: string[]
   danhSachPhanCong: PhanCong[]
+  thoiGianChayGiay?: number
+  soLuongBien?: number
+  soLuongRangBuoc?: number
+  thongDiep?: string
+  chiTietViPham?: string[]
 }
 
 export interface UngVienLop {

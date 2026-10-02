@@ -27,8 +27,18 @@ function Login() {
         matKhau,
       })
       navigate('/')
-    } catch {
-      setLoi('Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.')
+    } catch (err: unknown) {
+      console.error('Lỗi đăng nhập:', err)
+      const errorObj = err as { response?: { data?: string | object; status?: number }; message?: string }
+      if (errorObj?.response?.status === 401) {
+        setLoi('Tên đăng nhập hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.')
+      } else if (errorObj?.message?.includes('Network Error')) {
+        setLoi('Không thể kết nối đến máy chủ Backend (http://localhost:5001). Vui lòng kiểm tra Backend đã chạy chưa.')
+      } else if (typeof errorObj?.response?.data === 'string') {
+        setLoi(errorObj.response.data)
+      } else {
+        setLoi(errorObj?.message || 'Đăng nhập thất bại. Vui lòng thử lại.')
+      }
     } finally {
       setDangXuLy(false)
     }

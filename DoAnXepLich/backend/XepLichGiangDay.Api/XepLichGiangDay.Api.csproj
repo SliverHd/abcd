@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.3" />
+    <PackageReference Include="Google.OrTools" Version="9.15.6755" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

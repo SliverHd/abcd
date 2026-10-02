@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { hocKyApi } from '../../api/hocKyApi'
 import { xepLichApi } from '../../api/xepLichApi'
 import type { HocKy } from '../../types/hocKy'
 import type { KetQuaXepLich, YeuCauXepLich } from '../../types/xepLich'
 
 function ChayXepLich() {
+  const navigate = useNavigate()
   const [danhSachHocKy, setDanhSachHocKy] = useState<HocKy[]>([])
   const [form, setForm] = useState<YeuCauXepLich>({
     maHocKy: 0,
@@ -14,6 +15,8 @@ function ChayXepLich() {
     soTheHe: 100,
     tyLeLaiGhep: 0.8,
     tyLeDotBien: 0.05,
+    thoiGianChayToiDa: 30,
+    soLuongWorker: 1,
   })
   const [ketQua, setKetQua] = useState<KetQuaXepLich | null>(null)
   const [dangChay, setDangChay] = useState(false)
@@ -48,7 +51,12 @@ function ChayXepLich() {
 
     const payload =
       form.thuatToan === 'CP_SAT'
-        ? { maHocKy: form.maHocKy, thuatToan: form.thuatToan }
+        ? {
+            maHocKy: form.maHocKy,
+            thuatToan: form.thuatToan,
+            thoiGianChayToiDa: form.thoiGianChayToiDa ?? 30,
+            soLuongWorker: form.soLuongWorker ?? 1,
+          }
         : form
 
     try {
@@ -73,7 +81,7 @@ function ChayXepLich() {
         <div>
           <h2 className="h5 mb-1">Chạy thuật toán xếp lịch tự động</h2>
           <p className="text-muted small mb-0">
-            Sử dụng giải thuật di truyền (Genetic Algorithm) để phân công giảng viên vào thời khóa biểu cố định
+            Hỗ trợ giải thuật di truyền (GA) và bộ giải ràng buộc tối ưu CP-SAT (Google OR-Tools)
           </p>
         </div>
       </div>
@@ -100,7 +108,7 @@ function ChayXepLich() {
 
           <div className="col-md-6">
             <label className="form-label small fw-semibold" htmlFor="thuatToan">
-              Thuật toán
+              Thuật toán xếp lịch
             </label>
             <select
               id="thuatToan"
@@ -113,8 +121,8 @@ function ChayXepLich() {
                 }))
               }
             >
-              <option value="GA">Genetic Algorithm (GA - Đã hoàn thiện)</option>
-              <option value="CP_SAT">CP-SAT (Google OR-Tools)</option>
+              <option value="GA">Genetic Algorithm (GA - Giải thuật di truyền)</option>
+              <option value="CP_SAT">CP-SAT (Google OR-Tools - Bộ giải ràng buộc)</option>
             </select>
           </div>
 
@@ -122,7 +130,7 @@ function ChayXepLich() {
             <>
               <div className="col-md-3">
                 <label className="form-label small fw-semibold" htmlFor="kichThuocQuanThe">
-                  Kích thước quần thể (Population Size)
+                  Kích thước quần thể (Pop Size)
                 </label>
                 <input
                   id="kichThuocQuanThe"
@@ -138,7 +146,7 @@ function ChayXepLich() {
 
               <div className="col-md-3">
                 <label className="form-label small fw-semibold" htmlFor="soTheHe">
-                  Số thế hệ tối đa (Max Generations)
+                  Số thế hệ tối đa
                 </label>
                 <input
                   id="soTheHe"
@@ -154,7 +162,7 @@ function ChayXepLich() {
 
               <div className="col-md-3">
                 <label className="form-label small fw-semibold" htmlFor="tyLeLaiGhep">
-                  Tỷ lệ lai ghép (Crossover Rate)
+                  Tỷ lệ lai ghép
                 </label>
                 <input
                   id="tyLeLaiGhep"
@@ -171,7 +179,7 @@ function ChayXepLich() {
 
               <div className="col-md-3">
                 <label className="form-label small fw-semibold" htmlFor="tyLeDotBien">
-                  Tỷ lệ đột biến (Mutation Rate)
+                  Tỷ lệ đột biến
                 </label>
                 <input
                   id="tyLeDotBien"
@@ -184,6 +192,42 @@ function ChayXepLich() {
                   onChange={(event) => capNhatSo('tyLeDotBien', event.target.value)}
                 />
                 <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 0.05 (5%)</small>
+              </div>
+            </>
+          )}
+
+          {form.thuatToan === 'CP_SAT' && (
+            <>
+              <div className="col-md-6">
+                <label className="form-label small fw-semibold" htmlFor="thoiGianChayToiDa">
+                  Giới hạn thời gian (giây)
+                </label>
+                <input
+                  id="thoiGianChayToiDa"
+                  type="number"
+                  min={1}
+                  max={300}
+                  className="form-control form-control-sm"
+                  value={form.thoiGianChayToiDa ?? 30}
+                  onChange={(event) => capNhatSo('thoiGianChayToiDa', event.target.value)}
+                />
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 30 giây</small>
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label small fw-semibold" htmlFor="soLuongWorker">
+                  Số luồng CPU (Workers)
+                </label>
+                <input
+                  id="soLuongWorker"
+                  type="number"
+                  min={1}
+                  max={32}
+                  className="form-control form-control-sm"
+                  value={form.soLuongWorker ?? 1}
+                  onChange={(event) => capNhatSo('soLuongWorker', event.target.value)}
+                />
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 1 worker</small>
               </div>
             </>
           )}
@@ -204,10 +248,12 @@ function ChayXepLich() {
             <h3 className="h6 fw-bold mb-0">Kết quả chạy thuật toán {ketQua.thuatToan}</h3>
             <span
               className={`badge ${
-                ketQua.soViPhamCung === 0 ? 'bg-success' : 'bg-danger'
+                (ketQua.soViPhamCung ?? 0) === 0 ? 'bg-success' : 'bg-danger'
               }`}
             >
-              {ketQua.soViPhamCung === 0 ? 'HỢP LỆ (Thỏa mãn ràng buộc cứng)' : `CÒN VI PHẠM (${ketQua.soViPhamCung})`}
+              {(ketQua.soViPhamCung ?? 0) === 0
+                ? 'HỢP LỆ (Thỏa mãn ràng buộc cứng)'
+                : `CÒN VI PHẠM (${ketQua.soViPhamCung})`}
             </span>
           </div>
 
@@ -215,13 +261,13 @@ function ChayXepLich() {
             <div className="col-md-3">
               <div className="p-2 border rounded bg-light">
                 <div className="small text-muted">Thời gian chạy</div>
-                <div className="fw-bold">{ketQua.thoiGianChayMiligiay ?? 0} ms</div>
+                <div className="fw-bold">{ketQua.thoiGianChayMiligiay ?? (ketQua.thoiGianChayGiay ? ketQua.thoiGianChayGiay * 1000 : 0)} ms</div>
               </div>
             </div>
             <div className="col-md-3">
               <div className="p-2 border rounded bg-light">
-                <div className="small text-muted">Số thế hệ thực tế</div>
-                <div className="fw-bold">{ketQua.soTheHeThucTe ?? form.soTheHe}</div>
+                <div className="small text-muted">Trạng thái</div>
+                <div className="fw-bold text-primary">{ketQua.trangThai}</div>
               </div>
             </div>
             <div className="col-md-3">
@@ -244,6 +290,17 @@ function ChayXepLich() {
               <ul className="mb-0 ps-3 small">
                 {ketQua.danhSachViPham.map((vp, i) => (
                   <li key={i}>{vp}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {ketQua.chiTietViPham && ketQua.chiTietViPham.length > 0 && (
+            <div className="alert alert-warning py-2 mb-3">
+              <div className="fw-semibold small mb-1">Cảnh báo vi phạm ràng buộc mềm:</div>
+              <ul className="mb-0 ps-3 small">
+                {ketQua.chiTietViPham.map((vp, idx) => (
+                  <li key={idx}>{vp}</li>
                 ))}
               </ul>
             </div>
