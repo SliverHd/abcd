@@ -1,12 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { hocKyApi } from '../../api/hocKyApi'
 import { xepLichApi } from '../../api/xepLichApi'
 import type { HocKy } from '../../types/hocKy'
 import type { KetQuaXepLich, YeuCauXepLich } from '../../types/xepLich'
 
 function ChayXepLich() {
-  const navigate = useNavigate()
   const [danhSachHocKy, setDanhSachHocKy] = useState<HocKy[]>([])
   const [form, setForm] = useState<YeuCauXepLich>({
     maHocKy: 0,
