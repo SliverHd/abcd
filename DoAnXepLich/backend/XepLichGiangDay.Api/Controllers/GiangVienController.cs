@@ -41,4 +41,17 @@ public class GiangVienController(GiangVienService service) : ControllerBase
         var success = await service.DeleteAsync(id);
         return success ? NoContent() : NotFound();
     }
+
+    [HttpGet("{id:int}/nang-luc")]
+    public async Task<ActionResult<List<NangLucGiangDayDto>>> GetNangLuc(int id)
+    {
+        return Ok(await service.LayNangLucAsync(id));
+    }
+
+    [HttpPut("{id:int}/nang-luc")]
+    public async Task<IActionResult> CapNhatNangLuc(int id, [FromBody] CapNhatNangLucDto dto)
+    {
+        var success = await service.CapNhatNangLucAsync(id, dto.DanhSachMaHocPhan);
+        return success ? NoContent() : NotFound();
+    }
 }

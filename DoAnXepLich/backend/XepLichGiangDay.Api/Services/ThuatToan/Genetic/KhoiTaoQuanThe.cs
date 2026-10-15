@@ -7,7 +7,8 @@ public class KhoiTaoQuanThe
     public List<CaThe> TaoQuanTheBanDau(
         int kichThuocQuanThe,
         List<int> danhSachMaLop,
-        Dictionary<int, List<int>> ungVienTheoLop)
+        Dictionary<int, List<int>> ungVienTheoLop,
+        Dictionary<int, int>? phanCongCoDinh = null)
     {
         var quanThe = new List<CaThe>();
 
@@ -17,7 +18,13 @@ public class KhoiTaoQuanThe
             foreach (var maLop in danhSachMaLop)
             {
                 int maGv = 0;
-                if (ungVienTheoLop.TryGetValue(maLop, out var dsUngVien) && dsUngVien.Count > 0)
+
+                // Nếu lớp đã bị khóa/ghim cố định thì giữ nguyên
+                if (phanCongCoDinh != null && phanCongCoDinh.TryGetValue(maLop, out var gvKhoa) && gvKhoa > 0)
+                {
+                    maGv = gvKhoa;
+                }
+                else if (ungVienTheoLop.TryGetValue(maLop, out var dsUngVien) && dsUngVien.Count > 0)
                 {
                     maGv = dsUngVien[_random.Next(dsUngVien.Count)];
                 }

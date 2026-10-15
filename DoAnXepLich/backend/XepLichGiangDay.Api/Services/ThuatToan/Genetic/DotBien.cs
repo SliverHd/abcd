@@ -8,10 +8,16 @@ public class DotBien
     /// Đột biến thay thế ngẫu nhiên (Random Resetting Mutation):
     /// Duyệt qua từng gen, với xác suất tyLeDotBien, thay thế GV hiện tại bằng một GV khác có chuyên môn.
     /// </summary>
-    public CaThe ThucHien(CaThe caThe, double tyLeDotBien, Dictionary<int, List<int>> ungVienTheoLop)
+    public CaThe ThucHien(CaThe caThe, double tyLeDotBien, Dictionary<int, List<int>> ungVienTheoLop, HashSet<int>? cacLopCoDinh = null)
     {
         foreach (var gen in caThe.DanhSachGen)
         {
+            // Không đột biến lớp đã ghim / khóa
+            if (cacLopCoDinh != null && cacLopCoDinh.Contains(gen.MaLopHocPhan))
+            {
+                continue;
+            }
+
             if (_random.NextDouble() < tyLeDotBien)
             {
                 if (ungVienTheoLop.TryGetValue(gen.MaLopHocPhan, out var dsUngVien) && dsUngVien.Count > 1)

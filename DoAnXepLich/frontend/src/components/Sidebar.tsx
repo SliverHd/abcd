@@ -6,11 +6,19 @@ const adminMenuItems = [
   { path: '/nam-hoc', label: 'Quản lý năm học' },
   { path: '/hoc-ky', label: 'Quản lý học kỳ' },
   { path: '/bo-mon', label: 'Quản lý bộ môn' },
-  { path: '/thoi-khoa-bieu', label: 'Import TKB' },
+  { path: '/giang-vien', label: 'Quản lý giảng viên' },
+  { path: '/hoc-phan', label: 'Quản lý học phần' },
+  { path: '/thoi-khoa-bieu', label: 'Thời khóa biểu' },
+  { path: '/rang-buoc', label: 'Cấu hình ràng buộc' },
+  { path: '/xep-lich', label: 'Xếp lịch tự động' },
+  { path: '/ket-qua', label: 'Kết quả xếp lịch' },
 ]
 
 const truongBoMonMenuItems = [
+  { path: '/giang-vien', label: 'Quản lý giảng viên' },
+  { path: '/hoc-phan', label: 'Quản lý học phần' },
   { path: '/thoi-khoa-bieu', label: 'Thời khóa biểu' },
+  { path: '/nguyen-vong', label: 'Lịch bận & Nguyện vọng' },
   { path: '/rang-buoc', label: 'Cấu hình ràng buộc' },
   { path: '/xep-lich', label: 'Xếp lịch tự động' },
   { path: '/ket-qua', label: 'Kết quả xếp lịch' },

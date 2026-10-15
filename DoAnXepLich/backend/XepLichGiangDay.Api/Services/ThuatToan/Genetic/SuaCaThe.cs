@@ -6,10 +6,14 @@ public class ThoiGianLop
     public int Thu { get; set; }
     public int TietBatDau { get; set; }
     public int TietKetThuc { get; set; }
+    public int TuTuan { get; set; } = 1;
+    public int DenTuan { get; set; } = 53;
 
     public bool TrungGioVoi(ThoiGianLop other)
     {
         if (Thu != other.Thu) return false;
+        bool giaoTuan = Math.Max(TuTuan, other.TuTuan) <= Math.Min(DenTuan, other.DenTuan);
+        if (!giaoTuan) return false;
         return !(TietKetThuc < other.TietBatDau || TietBatDau > other.TietKetThuc);
     }
 }
@@ -25,7 +29,8 @@ public class SuaCaThe
     public CaThe SuaNeuViPham(
         CaThe caThe,
         Dictionary<int, List<ThoiGianLop>> thoiGianTheoLop,
-        Dictionary<int, List<int>> ungVienTheoLop)
+        Dictionary<int, List<int>> ungVienTheoLop,
+        HashSet<int>? cacLopCoDinh = null)
     {
         // Nhóm các lớp theo giảng viên được phân công
         var lopTheoGv = new Dictionary<int, List<int>>();
@@ -60,14 +65,19 @@ public class SuaCaThe
                         bool isConflict = tg1.Any(t1 => tg2.Any(t2 => t1.TrungGioVoi(t2)));
                         if (isConflict)
                         {
-                            // Tìm cách đổi giảng viên cho lớp 2
-                            var gen2 = caThe.DanhSachGen.FirstOrDefault(g => g.MaLopHocPhan == lop2);
-                            if (gen2 != null && ungVienTheoLop.TryGetValue(lop2, out var dsUngVien))
+                            // Ưu tiên đổi lớp chưa bị khóa (nếu lop2 bị khóa mà lop1 không khóa thì đổi lop1)
+                            int lopDoi = (cacLopCoDinh != null && cacLopCoDinh.Contains(lop2) && !cacLopCoDinh.Contains(lop1)) ? lop1 : lop2;
+
+                            if (cacLopCoDinh == null || !cacLopCoDinh.Contains(lopDoi))
                             {
-                                var thayThe = dsUngVien.Where(x => x != gvId).ToList();
-                                if (thayThe.Count > 0)
+                                var genDoi = caThe.DanhSachGen.FirstOrDefault(g => g.MaLopHocPhan == lopDoi);
+                                if (genDoi != null && ungVienTheoLop.TryGetValue(lopDoi, out var dsUngVien))
                                 {
-                                    gen2.MaGiangVien = thayThe[_random.Next(thayThe.Count)];
+                                    var thayThe = dsUngVien.Where(x => x != gvId).ToList();
+                                    if (thayThe.Count > 0)
+                                    {
+                                        genDoi.MaGiangVien = thayThe[_random.Next(thayThe.Count)];
+                                    }
                                 }
                             }
                         }

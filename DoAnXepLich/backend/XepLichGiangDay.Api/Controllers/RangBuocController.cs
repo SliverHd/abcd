@@ -92,4 +92,33 @@ public class RangBuocController(RangBuocService service) : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    [HttpGet("ung-vien/{maHocKy:int}")]
+    public async Task<IActionResult> LayDanhSachUngVien(int maHocKy)
+    {
+        try
+        {
+            var list = await service.LayDanhSachUngVienChiTietAsync(maHocKy);
+            return Ok(list);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpGet("danh-gia-hien-tai/{maHocKy:int}")]
+    public async Task<IActionResult> DanhGiaPhuongAnHienTai(int maHocKy)
+    {
+        try
+        {
+            var ketQua = await service.DanhGiaPhuongAnHienTaiAsync(maHocKy);
+            return Ok(ketQua);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }
+

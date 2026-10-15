@@ -6,7 +6,11 @@ using XepLichGiangDay.Api.Services.RangBuoc;
 
 namespace XepLichGiangDay.Api.Services;
 
-public class RangBuocService(AppDbContext context, BoKiemTraRangBuoc boKiemTra)
+public class RangBuocService(
+    AppDbContext context,
+    BoKiemTraRangBuoc boKiemTra,
+    TaoDanhSachUngVien taoUngVien,
+    BoDanhGiaPhuongAn boDanhGia)
 {
     public async Task<List<RangBuocHocKyDto>> LayDanhSachRangBuocAsync(int maHocKy)
     {
@@ -84,7 +88,7 @@ public class RangBuocService(AppDbContext context, BoKiemTraRangBuoc boKiemTra)
             throw new ArgumentException("Hoc ky khong ton tai trong he thong.");
         }
 
-        var dsGiangVien = await context.GiangVien.Where(x => x.TrangThai == "DangHoatDong").ToListAsync();
+        var dsGiangVien = await context.GiangVien.Where(x => x.TrangThai != "NghiViec").ToListAsync();
         var dsDinhMuc = await context.DinhMucGiangVien.Where(x => x.MaHocKy == maHocKy).ToListAsync();
 
         return dsGiangVien.Select(gv =>
@@ -179,7 +183,7 @@ public class RangBuocService(AppDbContext context, BoKiemTraRangBuoc boKiemTra)
             throw new ArgumentException("Hoc ky khong ton tai trong he thong.");
         }
 
-        var dsGiangVien = await context.GiangVien.Where(x => x.TrangThai == "DangHoatDong").ToListAsync();
+        var dsGiangVien = await context.GiangVien.Where(x => x.TrangThai != "NghiViec").ToListAsync();
         var dsDinhMuc = await context.DinhMucGiangVien.Where(x => x.MaHocKy == dto.MaHocKy).ToListAsync();
 
         foreach (var gv in dsGiangVien)
@@ -237,4 +241,60 @@ public class RangBuocService(AppDbContext context, BoKiemTraRangBuoc boKiemTra)
 
         return boKiemTra.KiemTraToanBoPhuongAn(dictPhanCong, dsLop, dsChiTiet, dsNangLuc, dsLichBan, dsGiangVien);
     }
+
+    public async Task<List<UngVienLopHocPhanDto>> LayDanhSachUngVienChiTietAsync(int maHocKy)
+    {
+        if (maHocKy <= 0)
+        {
+            throw new ArgumentException("Ma hoc ky khong hop le.");
+        }
+
+        var hocKyTonTai = await context.HocKy.AnyAsync(x => x.MaHocKy == maHocKy);
+        if (!hocKyTonTai)
+        {
+            throw new ArgumentException("Hoc ky khong ton tai trong he thong.");
+        }
+
+        return await taoUngVien.LayDanhSachUngVienChiTietAsync(maHocKy);
+    }
+
+    public async Task<KetQuaDanhGiaDto> DanhGiaPhuongAnHienTaiAsync(int maHocKy)
+    {
+        if (maHocKy <= 0)
+        {
+            throw new ArgumentException("Ma hoc ky khong hop le.");
+        }
+
+        var hocKyTonTai = await context.HocKy.AnyAsync(x => x.MaHocKy == maHocKy);
+        if (!hocKyTonTai)
+        {
+            throw new ArgumentException("Hoc ky khong ton tai trong he thong.");
+        }
+
+        var boiCanh = await boDanhGia.TaoBoiCanhAsync(maHocKy);
+        var dsPhanCong = await context.PhanCongGiangDay.Where(x => x.MaHocKy == maHocKy).ToListAsync();
+
+        var dictPhanCong = new Dictionary<int, int?>();
+        foreach (var lop in boiCanh.DanhSachLop)
+        {
+            var pc = dsPhanCong.FirstOrDefault(x => x.MaLopHocPhan == lop.MaLopHocPhan);
+            dictPhanCong[lop.MaLopHocPhan] = pc?.MaGiangVien;
+        }
+
+        var ketQua = boDanhGia.DanhGia(dictPhanCong, boiCanh);
+
+        return new KetQuaDanhGiaDto
+        {
+            TongDiemPhat = ketQua.TongDiemPhat,
+            DoThichNghi = ketQua.DoThichNghi,
+            DiemPhatRangBuocCung = ketQua.DiemPhatRangBuocCung,
+            DiemPhatNguyenVong = ketQua.DiemPhatNguyenVong,
+            DiemPhatCanBangTai = ketQua.DiemPhatCanBangTai,
+            DiemPhatGomLich = ketQua.DiemPhatGomLich,
+            SoViPhamCung = ketQua.SoViPhamChuyenMon + ketQua.SoViPhamTrungLich + ketQua.SoViPhamLichBan + ketQua.SoLopChuaPhanCong,
+            HopLe = ketQua.HopLe,
+            DanhSachViPham = ketQua.DanhSachViPham
+        };
+    }
 }
+

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+ using Microsoft.EntityFrameworkCore;
 using XepLichGiangDay.Api.Data;
 using XepLichGiangDay.Api.Services;
 using XepLichGiangDay.Api.Services.RangBuoc;
@@ -42,6 +42,8 @@ builder.Services.AddScoped<BoMonService>();
 builder.Services.AddScoped<ImportThoiKhoaBieuService>();
 builder.Services.AddScoped<ThoiKhoaBieuService>();
 builder.Services.AddScoped<RangBuocService>();
+builder.Services.AddScoped<NguyenVongService>();
+builder.Services.AddScoped<XepLichService>();
 
 // Dang ky rang buoc & thuat toan xep lich (Strategy Pattern)
 builder.Services.AddScoped<BoKiemTraRangBuoc>();

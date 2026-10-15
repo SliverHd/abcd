@@ -13,8 +13,20 @@ function DanhSachLopHocPhan() {
   const [danhSachHocKy, setDanhSachHocKy] = useState<HocKy[]>([])
   const [maHocKy, setMaHocKy] = useState<number>(0)
   const [danhSachLop, setDanhSachLop] = useState<LopHocPhan[]>([])
+  const [tuKhoa, setTuKhoa] = useState<string>('')
   const [dangTai, setDangTai] = useState(false)
   const [tabHienTai, setTabHienTai] = useState<'danhSach' | 'import'>('danhSach')
+
+  const dsLopHienThi = danhSachLop.filter((lop) => {
+    if (!tuKhoa.trim()) return true
+    const kw = tuKhoa.toLowerCase()
+    return (
+      lop.maLopHocPhanTruong.toLowerCase().includes(kw) ||
+      lop.tenLop.toLowerCase().includes(kw) ||
+      lop.tenHocPhan.toLowerCase().includes(kw) ||
+      (lop.phongHoc || '').toLowerCase().includes(kw)
+    )
+  })
 
   useEffect(() => {
     hocKyApi.getAll().then((res) => {
@@ -107,38 +119,53 @@ function DanhSachLopHocPhan() {
       )}
 
       {(!isAdmin || tabHienTai === 'danhSach') ? (
-        <div className="table-responsive border bg-white">
-          <table className="table table-hover table-sm mb-0" style={{ fontSize: '0.9rem' }}>
-            <thead className="table-light">
-              <tr>
-                <th style={{ width: '50px' }}>STT</th>
-                <th>Mã lớp HP</th>
-                <th>Tên lớp</th>
-                <th>Môn học</th>
-                <th>Số TC</th>
-                <th>Sĩ số</th>
-                <th>Thứ</th>
-                <th>Tiết</th>
-                <th>Phòng</th>
-                <th>Tuần</th>
-                {isAdmin && <th style={{ width: '80px' }} className="text-end no-print">Thao tác</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {dangTai ? (
+        <>
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <span className="small text-muted">
+              Hiển thị <strong>{dsLopHienThi.length}</strong> / {danhSachLop.length} lớp học phần
+            </span>
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              style={{ maxWidth: '280px' }}
+              placeholder="Tìm theo mã lớp, môn học, phòng..."
+              value={tuKhoa}
+              onChange={(e) => setTuKhoa(e.target.value)}
+            />
+          </div>
+
+          <div className="table-responsive border bg-white">
+            <table className="table table-hover table-sm mb-0" style={{ fontSize: '0.9rem' }}>
+              <thead className="table-light">
                 <tr>
-                  <td colSpan={isAdmin ? 11 : 10} className="text-center py-3 text-muted">
-                    Đang tải dữ liệu...
-                  </td>
+                  <th style={{ width: '50px' }}>STT</th>
+                  <th>Mã lớp HP</th>
+                  <th>Tên lớp</th>
+                  <th>Môn học</th>
+                  <th>Số TC</th>
+                  <th>Sĩ số</th>
+                  <th>Thứ</th>
+                  <th>Tiết</th>
+                  <th>Phòng</th>
+                  <th>Tuần</th>
+                  {isAdmin && <th style={{ width: '80px' }} className="text-end no-print">Thao tác</th>}
                 </tr>
-              ) : danhSachLop.length === 0 ? (
-                <tr>
-                  <td colSpan={isAdmin ? 11 : 10} className="text-center py-3 text-muted">
-                    Học kỳ này chưa có lớp học phần nào.{isAdmin && ' Vui lòng qua tab "Import từ Excel" để nạp dữ liệu.'}
-                  </td>
-                </tr>
-              ) : (
-                danhSachLop.map((lop, idx) => (
+              </thead>
+              <tbody>
+                {dangTai ? (
+                  <tr>
+                    <td colSpan={isAdmin ? 11 : 10} className="text-center py-3 text-muted">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : dsLopHienThi.length === 0 ? (
+                  <tr>
+                    <td colSpan={isAdmin ? 11 : 10} className="text-center py-3 text-muted">
+                      {tuKhoa ? 'Không tìm thấy lớp học phần phù hợp với từ khóa.' : 'Học kỳ này chưa có lớp học phần nào. ' + (isAdmin ? 'Vui lòng qua tab "Import từ Excel" để nạp dữ liệu.' : '')}
+                    </td>
+                  </tr>
+                ) : (
+                  dsLopHienThi.map((lop, idx) => (
                   <tr key={lop.maLopHocPhan}>
                     <td>{idx + 1}</td>
                     <td className="fw-semibold">{lop.maLopHocPhanTruong}</td>
@@ -166,6 +193,7 @@ function DanhSachLopHocPhan() {
             </tbody>
           </table>
         </div>
+        </>
       ) : (
         <ImportThoiKhoaBieu
           maHocKyChon={maHocKy}

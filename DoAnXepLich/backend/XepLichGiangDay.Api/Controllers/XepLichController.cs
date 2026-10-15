@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using XepLichGiangDay.Api.DTOs.XepLich;
+using XepLichGiangDay.Api.Services;
 using XepLichGiangDay.Api.Services.ThuatToan;
 
 namespace XepLichGiangDay.Api.Controllers;
 
 [ApiController]
 [Route("api/xep-lich")]
-public class XepLichController(IEnumerable<ISchedulingAlgorithm> algorithms) : ControllerBase
+public class XepLichController(
+    IEnumerable<ISchedulingAlgorithm> algorithms,
+    XepLichService xepLichService) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<KetQuaXepLichDto>> ChayXepLich(YeuCauXepLichDto request, CancellationToken cancellationToken)
@@ -31,5 +34,74 @@ public class XepLichController(IEnumerable<ISchedulingAlgorithm> algorithms) : C
 
         var ketQua = await algorithm.ChayAsync(duLieu, cancellationToken);
         return Ok(ketQua);
+    }
+
+    /// <summary>
+    /// Lấy bảng phân công giảng dạy chi tiết theo học kỳ.
+    /// </summary>
+    [HttpGet("bang-phan-cong/{maHocKy:int}")]
+    public async Task<ActionResult<BangPhanCongHocKyDto>> LayBangPhanCong(int maHocKy, CancellationToken cancellationToken)
+    {
+        var ketQua = await xepLichService.LayBangPhanCongAsync(maHocKy, cancellationToken);
+        return Ok(ketQua);
+    }
+
+    /// <summary>
+    /// Can thiệp phân công hoặc thay đổi giảng viên thủ công cho lớp học phần.
+    /// </summary>
+    [HttpPost("phan-cong-thu-cong")]
+    public async Task<ActionResult<KetQuaPhanCongThuCongDto>> PhanCongThuCong([FromBody] YeuCauPhanCongThuCongDto req, CancellationToken cancellationToken)
+    {
+        var ketQua = await xepLichService.PhanCongThuCongAsync(req, cancellationToken);
+        return Ok(ketQua);
+    }
+
+    /// <summary>
+    /// Đổi trạng thái khóa / ghim phân công của một lớp học phần.
+    /// </summary>
+    [HttpPut("khoa/{maLopHocPhan:int}")]
+    public async Task<IActionResult> DoiTrangThaiKhoa(int maLopHocPhan, [FromQuery] bool daKhoa, CancellationToken cancellationToken)
+    {
+        var thanhCong = await xepLichService.DoiTrangThaiKhoaAsync(maLopHocPhan, daKhoa, cancellationToken);
+        if (!thanhCong)
+        {
+            return NotFound("Không tìm thấy thông tin phân công của lớp học phần này.");
+        }
+        return Ok(new { thanhCong = true, daKhoa });
+    }
+
+    /// <summary>
+    /// Hủy phân công của lớp học phần (trở về trạng thái chưa phân công).
+    /// </summary>
+    [HttpDelete("huy-phan-cong/{maLopHocPhan:int}")]
+    public async Task<IActionResult> HuyPhanCong(int maLopHocPhan, CancellationToken cancellationToken)
+    {
+        var thanhCong = await xepLichService.HuyPhanCongAsync(maLopHocPhan, cancellationToken);
+        if (!thanhCong)
+        {
+            return NotFound("Lớp học phần này chưa được phân công hoặc không tồn tại.");
+        }
+        return Ok(new { thanhCong = true });
+    }
+
+    /// <summary>
+    /// Thống kê khối lượng giảng dạy của toàn bộ giảng viên trong kỳ và so sánh định mức.
+    /// </summary>
+    [HttpGet("thong-ke-tai/{maHocKy:int}")]
+    public async Task<ActionResult<List<ThongKeTaiGvDto>>> LayThongKeTai(int maHocKy, CancellationToken cancellationToken)
+    {
+        var ketQua = await xepLichService.LayThongKeTaiAsync(maHocKy, cancellationToken);
+        return Ok(ketQua);
+    }
+
+    /// <summary>
+    /// Xuất toàn bộ bảng phân công thời khóa biểu và thống kê tải ra file Excel (.xlsx).
+    /// </summary>
+    [HttpGet("xuat-excel/{maHocKy:int}")]
+    public async Task<IActionResult> XuatExcel(int maHocKy, CancellationToken cancellationToken)
+    {
+        var bytes = await xepLichService.XuatExcelBangPhanCongAsync(maHocKy, cancellationToken);
+        var tenFile = $"ThoiKhoaBieu_PhanCong_HocKy_{maHocKy}.xlsx";
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", tenFile);
     }
 }

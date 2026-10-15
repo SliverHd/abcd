@@ -7,7 +7,7 @@ public class LaiGhep
     /// <summary>
     /// Lai ghép đồng nhất (Uniform Crossover): Mỗi gen của con có 50% cơ hội thừa hưởng từ cha hoặc mẹ.
     /// </summary>
-    public CaThe TaoCon(CaThe cha, CaThe me, double tyLeLaiGhep)
+    public CaThe TaoCon(CaThe cha, CaThe me, double tyLeLaiGhep, HashSet<int>? cacLopCoDinh = null)
     {
         var con = new CaThe();
         int soLuongGen = cha.DanhSachGen.Count;
@@ -29,7 +29,14 @@ public class LaiGhep
         // Thực hiện lai ghép đồng nhất
         for (int i = 0; i < soLuongGen; i++)
         {
-            var genNguon = _random.NextDouble() < 0.5 ? cha.DanhSachGen[i] : me.DanhSachGen[i];
+            var genCha = cha.DanhSachGen[i];
+            var genMe = me.DanhSachGen[i];
+
+            // Nếu lớp đã khóa cố định, ưu tiên giữ gen từ cha (cả cha và mẹ đều đã giữ gen này)
+            var genNguon = (cacLopCoDinh != null && cacLopCoDinh.Contains(genCha.MaLopHocPhan))
+                ? genCha
+                : (_random.NextDouble() < 0.5 ? genCha : genMe);
+
             con.DanhSachGen.Add(new Gen
             {
                 MaLopHocPhan = genNguon.MaLopHocPhan,

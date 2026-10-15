@@ -1,10 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { hocKyApi } from '../../api/hocKyApi'
 import { xepLichApi } from '../../api/xepLichApi'
+import type { HocKy } from '../../types/hocKy'
 import type { KetQuaXepLich, YeuCauXepLich } from '../../types/xepLich'
 
 function ChayXepLich() {
+  const [danhSachHocKy, setDanhSachHocKy] = useState<HocKy[]>([])
   const [form, setForm] = useState<YeuCauXepLich>({
-    maHocKy: 1,
+    maHocKy: 0,
     thuatToan: 'GA',
     kichThuocQuanThe: 50,
     soTheHe: 100,
@@ -15,6 +19,15 @@ function ChayXepLich() {
   const [dangChay, setDangChay] = useState(false)
   const [loi, setLoi] = useState('')
 
+  useEffect(() => {
+    hocKyApi.getAll().then((res) => {
+      setDanhSachHocKy(res.data)
+      if (res.data.length > 0) {
+        setForm((prev) => ({ ...prev, maHocKy: res.data[0].maHocKy }))
+      }
+    })
+  }, [])
+
   const capNhatSo = (name: keyof YeuCauXepLich, value: string) => {
     setForm((current) => ({
       ...current,
@@ -24,6 +37,11 @@ function ChayXepLich() {
 
   const chayXepLich = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!form.maHocKy || form.maHocKy <= 0) {
+      alert('Vui lòng chọn học kỳ.')
+      return
+    }
+
     setDangChay(true)
     setLoi('')
     setKetQua(null)
@@ -36,8 +54,14 @@ function ChayXepLich() {
     try {
       const response = await xepLichApi.chayXepLich(payload)
       setKetQua(response.data)
-    } catch {
-      setLoi('Khong chay duoc thuat toan xep lich.')
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: unknown } }
+      const data = errorObj.response?.data
+      if (typeof data === 'string') {
+        setLoi(data)
+      } else {
+        setLoi('Lỗi khi chạy thuật toán xếp lịch.')
+      }
     } finally {
       setDangChay(false)
     }
@@ -45,128 +69,191 @@ function ChayXepLich() {
 
   return (
     <section>
-      <h2 className="h4 mb-3">Chay xep lich</h2>
-
-      <form className="row g-3" onSubmit={chayXepLich}>
-        <div className="col-md-4">
-          <label className="form-label" htmlFor="maHocKy">
-            Hoc ky
-          </label>
-          <input
-            id="maHocKy"
-            type="number"
-            min={1}
-            className="form-control"
-            value={form.maHocKy}
-            onChange={(event) => capNhatSo('maHocKy', event.target.value)}
-          />
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h2 className="h5 mb-1">Chạy thuật toán xếp lịch tự động</h2>
+          <p className="text-muted small mb-0">
+            Sử dụng giải thuật di truyền (Genetic Algorithm) để phân công giảng viên vào thời khóa biểu cố định
+          </p>
         </div>
+      </div>
 
-        <div className="col-md-4">
-          <label className="form-label" htmlFor="thuatToan">
-            Thuat toan
-          </label>
-          <select
-            id="thuatToan"
-            className="form-select"
-            value={form.thuatToan}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                thuatToan: event.target.value as YeuCauXepLich['thuatToan'],
-              }))
-            }
-          >
-            <option value="GA">Genetic Algorithm</option>
-            <option value="CP_SAT">CP-SAT</option>
-          </select>
-        </div>
+      <div className="card p-3 mb-4">
+        <form className="row g-3" onSubmit={chayXepLich}>
+          <div className="col-md-6">
+            <label className="form-label small fw-semibold" htmlFor="maHocKy">
+              Học kỳ áp dụng
+            </label>
+            <select
+              id="maHocKy"
+              className="form-select form-select-sm"
+              value={form.maHocKy}
+              onChange={(e) => setForm((prev) => ({ ...prev, maHocKy: Number(e.target.value) }))}
+            >
+              {danhSachHocKy.map((hk) => (
+                <option key={hk.maHocKy} value={hk.maHocKy}>
+                  {hk.tenHocKy}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {form.thuatToan === 'GA' && (
-          <>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="kichThuocQuanThe">
-                Kich thuoc quan the
-              </label>
-              <input
-                id="kichThuocQuanThe"
-                type="number"
-                min={1}
-                className="form-control"
-                value={form.kichThuocQuanThe ?? ''}
-                onChange={(event) =>
-                  capNhatSo('kichThuocQuanThe', event.target.value)
-                }
-              />
-            </div>
+          <div className="col-md-6">
+            <label className="form-label small fw-semibold" htmlFor="thuatToan">
+              Thuật toán
+            </label>
+            <select
+              id="thuatToan"
+              className="form-select form-select-sm"
+              value={form.thuatToan}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  thuatToan: event.target.value as YeuCauXepLich['thuatToan'],
+                }))
+              }
+            >
+              <option value="GA">Genetic Algorithm (GA - Đã hoàn thiện)</option>
+              <option value="CP_SAT">CP-SAT (Google OR-Tools)</option>
+            </select>
+          </div>
 
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="soTheHe">
-                So the he
-              </label>
-              <input
-                id="soTheHe"
-                type="number"
-                min={1}
-                className="form-control"
-                value={form.soTheHe ?? ''}
-                onChange={(event) => capNhatSo('soTheHe', event.target.value)}
-              />
-            </div>
+          {form.thuatToan === 'GA' && (
+            <>
+              <div className="col-md-3">
+                <label className="form-label small fw-semibold" htmlFor="kichThuocQuanThe">
+                  Kích thước quần thể (Population Size)
+                </label>
+                <input
+                  id="kichThuocQuanThe"
+                  type="number"
+                  min={10}
+                  max={500}
+                  className="form-control form-control-sm"
+                  value={form.kichThuocQuanThe ?? ''}
+                  onChange={(event) => capNhatSo('kichThuocQuanThe', event.target.value)}
+                />
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 50 cá thể</small>
+              </div>
 
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="tyLeLaiGhep">
-                Ty le lai ghep
-              </label>
-              <input
-                id="tyLeLaiGhep"
-                type="number"
-                min={0}
-                max={1}
-                step={0.01}
-                className="form-control"
-                value={form.tyLeLaiGhep ?? ''}
-                onChange={(event) =>
-                  capNhatSo('tyLeLaiGhep', event.target.value)
-                }
-              />
-            </div>
+              <div className="col-md-3">
+                <label className="form-label small fw-semibold" htmlFor="soTheHe">
+                  Số thế hệ tối đa (Max Generations)
+                </label>
+                <input
+                  id="soTheHe"
+                  type="number"
+                  min={10}
+                  max={1000}
+                  className="form-control form-control-sm"
+                  value={form.soTheHe ?? ''}
+                  onChange={(event) => capNhatSo('soTheHe', event.target.value)}
+                />
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 100 thế hệ</small>
+              </div>
 
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="tyLeDotBien">
-                Ty le dot bien
-              </label>
-              <input
-                id="tyLeDotBien"
-                type="number"
-                min={0}
-                max={1}
-                step={0.01}
-                className="form-control"
-                value={form.tyLeDotBien ?? ''}
-                onChange={(event) =>
-                  capNhatSo('tyLeDotBien', event.target.value)
-                }
-              />
-            </div>
-          </>
-        )}
+              <div className="col-md-3">
+                <label className="form-label small fw-semibold" htmlFor="tyLeLaiGhep">
+                  Tỷ lệ lai ghép (Crossover Rate)
+                </label>
+                <input
+                  id="tyLeLaiGhep"
+                  type="number"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  className="form-control form-control-sm"
+                  value={form.tyLeLaiGhep ?? ''}
+                  onChange={(event) => capNhatSo('tyLeLaiGhep', event.target.value)}
+                />
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 0.8 (80%)</small>
+              </div>
 
-        <div className="col-12">
-          <button type="submit" className="btn btn-primary" disabled={dangChay}>
-            {dangChay ? 'Dang chay...' : 'Chay xep lich'}
-          </button>
-        </div>
-      </form>
+              <div className="col-md-3">
+                <label className="form-label small fw-semibold" htmlFor="tyLeDotBien">
+                  Tỷ lệ đột biến (Mutation Rate)
+                </label>
+                <input
+                  id="tyLeDotBien"
+                  type="number"
+                  min={0.01}
+                  max={0.5}
+                  step={0.01}
+                  className="form-control form-control-sm"
+                  value={form.tyLeDotBien ?? ''}
+                  onChange={(event) => capNhatSo('tyLeDotBien', event.target.value)}
+                />
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Mặc định: 0.05 (5%)</small>
+              </div>
+            </>
+          )}
 
-      {loi && <div className="alert alert-warning mt-3">{loi}</div>}
+          <div className="col-12 mt-3">
+            <button type="submit" className="btn btn-primary btn-sm" disabled={dangChay}>
+              {dangChay ? 'Đang chạy thuật toán...' : 'Bắt đầu xếp lịch'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {loi && <div className="alert alert-danger py-2 small">{loi}</div>}
 
       {ketQua && (
-        <div className="border rounded p-3 mt-4">
-          <h3 className="h5">Ket qua tam</h3>
-          <p className="mb-1">Thuat toan: {ketQua.thuatToan}</p>
-          <p className="mb-1">Tong diem phat: {ketQua.tongDiemPhat}</p>
-          <p className="mb-0">Trang thai: {ketQua.trangThai}</p>
+        <div className="card border p-3 bg-white">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h3 className="h6 fw-bold mb-0">Kết quả chạy thuật toán {ketQua.thuatToan}</h3>
+            <span
+              className={`badge ${
+                ketQua.soViPhamCung === 0 ? 'bg-success' : 'bg-danger'
+              }`}
+            >
+              {ketQua.soViPhamCung === 0 ? 'HỢP LỆ (Thỏa mãn ràng buộc cứng)' : `CÒN VI PHẠM (${ketQua.soViPhamCung})`}
+            </span>
+          </div>
+
+          <div className="row g-2 mb-3 text-center">
+            <div className="col-md-3">
+              <div className="p-2 border rounded bg-light">
+                <div className="small text-muted">Thời gian chạy</div>
+                <div className="fw-bold">{ketQua.thoiGianChayMiligiay ?? 0} ms</div>
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div className="p-2 border rounded bg-light">
+                <div className="small text-muted">Số thế hệ thực tế</div>
+                <div className="fw-bold">{ketQua.soTheHeThucTe ?? form.soTheHe}</div>
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div className="p-2 border rounded bg-light">
+                <div className="small text-muted">Tổng điểm phạt</div>
+                <div className="fw-bold text-danger">{ketQua.tongDiemPhat.toFixed(1)}</div>
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div className="p-2 border rounded bg-light">
+                <div className="small text-muted">Số lớp đã phân công</div>
+                <div className="fw-bold text-success">{ketQua.danhSachPhanCong?.length ?? 0}</div>
+              </div>
+            </div>
+          </div>
+
+          {ketQua.danhSachViPham && ketQua.danhSachViPham.length > 0 && (
+            <div className="alert alert-warning py-2 mb-3">
+              <div className="fw-semibold small mb-1">Danh sách cảnh báo vi phạm:</div>
+              <ul className="mb-0 ps-3 small">
+                {ketQua.danhSachViPham.map((vp, i) => (
+                  <li key={i}>{vp}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="d-flex gap-2">
+            <Link to="/ket-qua" className="btn btn-success btn-sm">
+              Xem bảng phân công chi tiết & Thống kê tải &rarr;
+            </Link>
+          </div>
         </div>
       )}
     </section>
