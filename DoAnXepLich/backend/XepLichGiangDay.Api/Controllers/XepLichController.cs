@@ -32,8 +32,12 @@ public class XepLichController(
             TyLeDotBien = request.TyLeDotBien,
             ThoiGianChayToiDa = request.ThoiGianChayToiDa,
             SoLuongWorker = request.SoLuongWorker,
-            KhoangCachToiUuGap = request.KhoangCachToiUuGap
+            KhoangCachToiUuGap = request.KhoangCachToiUuGap,
+            RandomSeed = request.RandomSeed,
+            KichThuocGiaiDau = request.KichThuocGiaiDau,
+            SoCaTheUuTu = request.SoCaTheUuTu
         };
+
 
         var ketQua = await algorithm.ChayAsync(duLieu, cancellationToken);
         return Ok(ketQua);

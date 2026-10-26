@@ -58,10 +58,13 @@ public class KetQuaDanhGiaPhuongAn
     public int SoViPhamChuyenMon { get; set; }
     public int SoViPhamTrungLich { get; set; }
     public int SoViPhamLichBan { get; set; }
-    public bool HopLe => SoLopChuaPhanCong == 0 && SoViPhamChuyenMon == 0 && SoViPhamTrungLich == 0 && SoViPhamLichBan == 0;
+    public int SoViPhamCung => SoLopChuaPhanCong + SoViPhamChuyenMon + SoViPhamTrungLich + SoViPhamLichBan;
+    public double TongDiemPhatMem => DiemPhatNguyenVong + DiemPhatCanBangTai + DiemPhatGomLich;
+    public bool HopLe => SoViPhamCung == 0;
     public List<string> DanhSachViPham { get; set; } = [];
     public List<string> DanhSachCanhBaoMem { get; set; } = [];
 }
+
 
 public class BoDanhGiaPhuongAn
 {
@@ -202,12 +205,24 @@ public class BoDanhGiaPhuongAn
             }
         }
 
-        // 3. TỔNG HỢP ĐIỂM PHẠT VÀ ĐỘ THÍCH NGHI (FITNESS)
-        ketQua.TongDiemPhat = ketQua.DiemPhatRangBuocCung + ketQua.DiemPhatNguyenVong + ketQua.DiemPhatCanBangTai + ketQua.DiemPhatGomLich;
-        ketQua.DoThichNghi = 1.0 / (1.0 + ketQua.TongDiemPhat);
+        // 3. TỔNG HỢP ĐIỂM PHẠT VÀ ĐỘ THÍCH NGHI (FITNESS PHÂN TẦNG)
+        ketQua.TongDiemPhat = ketQua.DiemPhatRangBuocCung + ketQua.TongDiemPhatMem;
+
+        // Phân tầng nghiêm ngặt (Lexicographic / Barrier Penalty):
+        // Nếu vi phạm ràng buộc cứng (SoViPhamCung > 0): Fitness < 0.001
+        // Nếu thỏa mãn 100% ràng buộc cứng (SoViPhamCung == 0): Fitness >= 1.0
+        if (ketQua.SoViPhamCung > 0)
+        {
+            ketQua.DoThichNghi = 1.0 / (1000.0 + (ketQua.SoViPhamCung * 100.0) + (ketQua.TongDiemPhatMem * 0.001));
+        }
+        else
+        {
+            ketQua.DoThichNghi = 1.0 + (1000.0 / (1.0 + ketQua.TongDiemPhatMem));
+        }
 
         return ketQua;
     }
+
 
     /// <summary>
     /// Tính điểm phạt nguyện vọng: Ưu tiên khung giờ, ca sáng/chiều, tránh ca tối, tránh cuối tuần, ưu tiên GV cơ hữu.
@@ -350,9 +365,16 @@ public class BoDanhGiaPhuongAn
 
         if (boiCanh.DinhMucTheoGv.TryGetValue(maGiangVien, out var dm))
         {
-            if (dm.SoTietToiThieu > 0) minTiet = dm.SoTietToiThieu;
-            if (dm.SoTietToiDa > 0) maxTiet = dm.SoTietToiDa;
+            if (dm.SoTietToiThieu > 0)
+            {
+                minTiet = dm.SoTietToiThieu > 30 ? (int)Math.Ceiling(dm.SoTietToiThieu / 15.0) : dm.SoTietToiThieu;
+            }
+            if (dm.SoTietToiDa > 0)
+            {
+                maxTiet = dm.SoTietToiDa > 30 ? (int)Math.Floor(dm.SoTietToiDa / 15.0) : dm.SoTietToiDa;
+            }
         }
+
 
         string tenGv = gv?.HoTen ?? $"GV #{maGiangVien}";
         double diemPhat = 0;

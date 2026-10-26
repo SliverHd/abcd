@@ -68,13 +68,20 @@ public class HocPhanService(AppDbContext context)
         return true;
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<(bool Success, string? Error)> DeleteAsync(int id)
     {
         var item = await context.HocPhan.FindAsync(id);
-        if (item is null) return false;
+        if (item is null) return (false, "Không tìm thấy học phần.");
+
+        var coLop = await context.LopHocPhan.AnyAsync(x => x.MaHocPhan == id);
+        if (coLop)
+        {
+            return (false, "Không thể xóa học phần đã có lớp học phần mở trong hệ thống.");
+        }
 
         context.HocPhan.Remove(item);
         await context.SaveChangesAsync();
-        return true;
+        return (true, null);
     }
+
 }

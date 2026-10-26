@@ -2,10 +2,17 @@ namespace XepLichGiangDay.Api.Services.ThuatToan.Genetic;
 
 public class LaiGhep
 {
-    private readonly Random _random = new();
+    private readonly Random _random;
+
+    public LaiGhep(Random? random = null)
+    {
+        _random = random ?? new Random();
+    }
 
     /// <summary>
     /// Lai ghép đồng nhất (Uniform Crossover): Mỗi gen của con có 50% cơ hội thừa hưởng từ cha hoặc mẹ.
+    /// Nếu không kích hoạt lai ghép (xác suất 1 - tyLeLaiGhep), sao chép nguyên vẹn từ cha.
+    /// Giữ nguyên hoàn toàn các lớp đã bị khóa ghim.
     /// </summary>
     public CaThe TaoCon(CaThe cha, CaThe me, double tyLeLaiGhep, HashSet<int>? cacLopCoDinh = null)
     {
@@ -32,7 +39,7 @@ public class LaiGhep
             var genCha = cha.DanhSachGen[i];
             var genMe = me.DanhSachGen[i];
 
-            // Nếu lớp đã khóa cố định, ưu tiên giữ gen từ cha (cả cha và mẹ đều đã giữ gen này)
+            // Nếu lớp đã khóa cố định, giữ nguyên gen từ cha (cả cha và mẹ đều giống nhau)
             var genNguon = (cacLopCoDinh != null && cacLopCoDinh.Contains(genCha.MaLopHocPhan))
                 ? genCha
                 : (_random.NextDouble() < 0.5 ? genCha : genMe);
@@ -47,3 +54,4 @@ public class LaiGhep
         return con;
     }
 }
+

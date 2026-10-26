@@ -44,11 +44,19 @@ public class ThoiKhoaBieuService(AppDbContext context)
         var daPhanCong = await context.PhanCongGiangDay.AnyAsync(x => x.MaLopHocPhan == id);
         if (daPhanCong)
         {
-            return (false, "Khong the xoa lop hoc phan da duoc phan cong giang day.");
+            return (false, "Không thể xóa lớp học phần đã được phân công giảng dạy.");
+        }
+
+        // Dọn dẹp bản ghi nhật ký xếp lịch liên kết để tránh lỗi khóa ngoại Restrict
+        var dsKq = await context.KetQuaXepLich.Where(x => x.MaLopHocPhan == id).ToListAsync();
+        if (dsKq.Count > 0)
+        {
+            context.KetQuaXepLich.RemoveRange(dsKq);
         }
 
         context.LopHocPhan.Remove(item);
         await context.SaveChangesAsync();
         return (true, null);
     }
+
 }

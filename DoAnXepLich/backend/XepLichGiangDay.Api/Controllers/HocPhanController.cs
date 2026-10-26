@@ -38,7 +38,12 @@ public class HocPhanController(HocPhanService service) : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var success = await service.DeleteAsync(id);
-        return success ? NoContent() : NotFound();
+        var (success, error) = await service.DeleteAsync(id);
+        if (!success)
+        {
+            return BadRequest(new { thongBao = error });
+        }
+        return NoContent();
     }
+
 }

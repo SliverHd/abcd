@@ -201,13 +201,26 @@ public class GiangVienService(AppDbContext context)
                       }).ToListAsync();
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<(bool Success, string? Error)> DeleteAsync(int id)
     {
         var item = await context.GiangVien.FindAsync(id);
-        if (item is null) return false;
+        if (item is null) return (false, "Không tìm thấy giảng viên.");
+
+        var daPhanCong = await context.PhanCongGiangDay.AnyAsync(x => x.MaGiangVien == id);
+        if (daPhanCong)
+        {
+            return (false, "Không thể xóa giảng viên đã có lịch phân công giảng dạy trong hệ thống.");
+        }
+
+        var coKetQua = await context.KetQuaXepLich.AnyAsync(x => x.MaGiangVien == id);
+        if (coKetQua)
+        {
+            return (false, "Không thể xóa giảng viên đã có dữ liệu xếp lịch.");
+        }
 
         context.GiangVien.Remove(item);
         await context.SaveChangesAsync();
-        return true;
+        return (true, null);
     }
+
 }

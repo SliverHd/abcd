@@ -29,6 +29,9 @@ public class DongPhanCongLopDto
     public string PhongHoc { get; set; } = string.Empty;
     public int TuTuan { get; set; }
     public int DenTuan { get; set; }
+    public string ThoiGianHocTongHop { get; set; } = string.Empty;
+    public List<ChiTietBuoiHocDto> DanhSachBuoiHoc { get; set; } = [];
+
 
     // Thông tin phân công hiện tại
     public int? MaPhanCong { get; set; }
@@ -86,3 +89,14 @@ public class ThongKeTaiGvDto
     public int SoTietToiDa { get; set; }
     public string TrangThaiTai { get; set; } = "BinhThuong"; // "ThieuTai", "BinhThuong", "QuaTai"
 }
+
+public class ChiTietBuoiHocDto
+{
+    public int Thu { get; set; }
+    public int TietBatDau { get; set; }
+    public int TietKetThuc { get; set; }
+    public string PhongHoc { get; set; } = string.Empty;
+    public int TuTuan { get; set; }
+    public int DenTuan { get; set; }
+}
+

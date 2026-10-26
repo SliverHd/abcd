@@ -51,11 +51,11 @@ function ChayXepLich() {
     const payload =
       form.thuatToan === 'CP_SAT'
         ? {
-            maHocKy: form.maHocKy,
-            thuatToan: form.thuatToan,
-            thoiGianChayToiDa: form.thoiGianChayToiDa ?? 30,
-            soLuongWorker: form.soLuongWorker ?? 1,
-          }
+          maHocKy: form.maHocKy,
+          thuatToan: form.thuatToan,
+          thoiGianChayToiDa: form.thoiGianChayToiDa ?? 30,
+          soLuongWorker: form.soLuongWorker ?? 1,
+        }
         : form
 
     try {
@@ -246,9 +246,8 @@ function ChayXepLich() {
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h3 className="h6 fw-bold mb-0">Kết quả chạy thuật toán {ketQua.thuatToan}</h3>
             <span
-              className={`badge ${
-                (ketQua.soViPhamCung ?? 0) === 0 ? 'bg-success' : 'bg-danger'
-              }`}
+              className={`badge ${(ketQua.soViPhamCung ?? 0) === 0 ? 'bg-success' : 'bg-danger'
+                }`}
             >
               {(ketQua.soViPhamCung ?? 0) === 0
                 ? 'HỢP LỆ (Thỏa mãn ràng buộc cứng)'

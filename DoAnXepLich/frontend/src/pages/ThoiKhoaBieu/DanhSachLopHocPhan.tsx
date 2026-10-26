@@ -166,8 +166,9 @@ function DanhSachLopHocPhan() {
                   </tr>
                 ) : (
                   dsLopHienThi.map((lop, idx) => (
-                  <tr key={lop.maLopHocPhan}>
+                  <tr key={`${lop.maLopHocPhan}_${lop.thu}_${lop.tietBatDau}_${idx}`}>
                     <td>{idx + 1}</td>
+
                     <td className="fw-semibold">{lop.maLopHocPhanTruong}</td>
                     <td>{lop.tenLop}</td>
                     <td>{lop.tenHocPhan}</td>

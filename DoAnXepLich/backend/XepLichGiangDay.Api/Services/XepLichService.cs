@@ -36,7 +36,7 @@ public class XepLichService(
         var dsChiTiet = await context.ChiTietThoiKhoaBieu
             .Where(x => dsMaLop.Contains(x.MaLopHocPhan))
             .ToListAsync(cancellationToken);
-        var chiTietTheoLop = dsChiTiet.GroupBy(x => x.MaLopHocPhan).ToDictionary(g => g.Key, g => g.FirstOrDefault());
+        var chiTietTheoLop = dsChiTiet.GroupBy(x => x.MaLopHocPhan).ToDictionary(g => g.Key, g => g.ToList());
 
         // 3. Lấy phân công hiện tại
         var dsPhanCong = await context.PhanCongGiangDay
@@ -74,8 +74,22 @@ public class XepLichService(
         foreach (var lop in dsLop)
         {
             var hp = dsHocPhan.TryGetValue(lop.MaHocPhan, out var hocPhan) ? hocPhan : null;
-            var ct = chiTietTheoLop.TryGetValue(lop.MaLopHocPhan, out var chiTiet) ? chiTiet : null;
+            var cacBuoiHoc = chiTietTheoLop.TryGetValue(lop.MaLopHocPhan, out var dsCtLopHoc) ? dsCtLopHoc : [];
+            var ct = cacBuoiHoc.FirstOrDefault();
             var pc = phanCongTheoLop.TryGetValue(lop.MaLopHocPhan, out var phanCong) ? phanCong : null;
+
+            var dsBuoiHocDto = cacBuoiHoc.Select(b => new ChiTietBuoiHocDto
+            {
+                Thu = b.Thu,
+                TietBatDau = b.TietBatDau,
+                TietKetThuc = b.TietKetThuc,
+                PhongHoc = b.PhongHoc ?? string.Empty,
+                TuTuan = b.TuTuan,
+                DenTuan = b.DenTuan
+            }).ToList();
+
+            string thoiGianTongHop = string.Join("; ", cacBuoiHoc.Select(b =>
+                $"Thứ {b.Thu} (T{b.TietBatDau}-{b.TietKetThuc}){(string.IsNullOrWhiteSpace(b.PhongHoc) ? "" : $" P.{b.PhongHoc}")}"));
 
             var dong = new DongPhanCongLopDto
             {
@@ -91,7 +105,9 @@ public class XepLichService(
                 TietKetThuc = ct != null ? ct.TietKetThuc : 0,
                 PhongHoc = ct != null ? ct.PhongHoc : string.Empty,
                 TuTuan = ct != null ? ct.TuTuan : 0,
-                DenTuan = ct != null ? ct.DenTuan : 0
+                DenTuan = ct != null ? ct.DenTuan : 0,
+                ThoiGianHocTongHop = thoiGianTongHop,
+                DanhSachBuoiHoc = dsBuoiHocDto
             };
 
             if (pc != null)
@@ -119,29 +135,38 @@ public class XepLichService(
                 if (!coNl) continue; // Chỉ gợi ý những GV có chuyên môn
 
                 bool vuongLb = false;
-                if (ct != null && lichBanTheoGv.TryGetValue(gv.MaGiangVien, out var dsLbCuaGv))
+                if (cacBuoiHoc.Count > 0 && lichBanTheoGv.TryGetValue(gv.MaGiangVien, out var dsLbCuaGv))
                 {
-                    vuongLb = boKiemTra.CoVuongLichBan(gv.MaGiangVien, ct.Thu, ct.TietBatDau, ct.TietKetThuc, dsLbCuaGv);
+                    vuongLb = cacBuoiHoc.Any(b => boKiemTra.CoVuongLichBan(gv.MaGiangVien, b.Thu, b.TietBatDau, b.TietKetThuc, dsLbCuaGv));
                 }
 
                 bool trungLd = false;
-                if (ct != null && phanCongHienTaiTheoGv.TryGetValue(gv.MaGiangVien, out var cacMaLopCuaGv))
+                if (cacBuoiHoc.Count > 0 && phanCongHienTaiTheoGv.TryGetValue(gv.MaGiangVien, out var cacMaLopCuaGv))
                 {
                     foreach (var otherMaLop in cacMaLopCuaGv)
                     {
                         if (otherMaLop == lop.MaLopHocPhan) continue; // Bỏ qua chính lớp đang xét
-                        if (chiTietTheoLop.TryGetValue(otherMaLop, out var otherCt) && otherCt != null)
+                        if (chiTietTheoLop.TryGetValue(otherMaLop, out var otherCacBuoi) && otherCacBuoi != null)
                         {
-                            if (boKiemTra.CoTrungLich(
-                                ct.Thu, ct.TietBatDau, ct.TietKetThuc, ct.TuTuan, ct.DenTuan,
-                                otherCt.Thu, otherCt.TietBatDau, otherCt.TietKetThuc, otherCt.TuTuan, otherCt.DenTuan))
+                            foreach (var bCurrent in cacBuoiHoc)
                             {
-                                trungLd = true;
-                                break;
+                                foreach (var bOther in otherCacBuoi)
+                                {
+                                    if (boKiemTra.CoTrungLich(
+                                        bCurrent.Thu, bCurrent.TietBatDau, bCurrent.TietKetThuc, bCurrent.TuTuan, bCurrent.DenTuan,
+                                        bOther.Thu, bOther.TietBatDau, bOther.TietKetThuc, bOther.TuTuan, bOther.DenTuan))
+                                    {
+                                        trungLd = true;
+                                        break;
+                                    }
+                                }
+                                if (trungLd) break;
                             }
                         }
+                        if (trungLd) break;
                     }
                 }
+
 
                 var lyDo = new List<string>();
                 if (vuongLb) lyDo.Add("Vướng lịch bận cá nhân");
@@ -219,20 +244,24 @@ public class XepLichService(
             viPham.Add($"Giảng viên {gv.HoTen} không có năng lực giảng dạy học phần này.");
         }
 
-        // 2. Lấy chi tiết lịch học của lớp
-        var ctLop = await context.ChiTietThoiKhoaBieu
-            .FirstOrDefaultAsync(x => x.MaLopHocPhan == req.MaLopHocPhan, cancellationToken);
+        // 2. Lấy toàn bộ các buổi học của lớp (hỗ trợ đầy đủ các lớp có nhiều buổi/tuần)
+        var dsCtLop = await context.ChiTietThoiKhoaBieu
+            .Where(x => x.MaLopHocPhan == req.MaLopHocPhan)
+            .ToListAsync(cancellationToken);
 
-        if (ctLop != null)
+        if (dsCtLop.Count > 0)
         {
-            // 2.1 Kiểm tra vướng lịch bận cá nhân
+            // 2.1 Kiểm tra vướng lịch bận cá nhân cho tất cả các buổi
             var dsLb = await context.LichBanGiangVien
                 .Where(x => x.MaGiangVien == req.MaGiangVien && x.MaHocKy == lop.MaHocKy)
                 .ToListAsync(cancellationToken);
 
-            if (boKiemTra.CoVuongLichBan(req.MaGiangVien, ctLop.Thu, ctLop.TietBatDau, ctLop.TietKetThuc, dsLb))
+            foreach (var ctLop in dsCtLop)
             {
-                viPham.Add($"Giảng viên {gv.HoTen} bị vướng lịch bận cá nhân vào Thứ {ctLop.Thu}, tiết {ctLop.TietBatDau}-{ctLop.TietKetThuc}.");
+                if (boKiemTra.CoVuongLichBan(req.MaGiangVien, ctLop.Thu, ctLop.TietBatDau, ctLop.TietKetThuc, dsLb))
+                {
+                    viPham.Add($"Giảng viên {gv.HoTen} bị vướng lịch bận cá nhân vào Thứ {ctLop.Thu}, tiết {ctLop.TietBatDau}-{ctLop.TietKetThuc}.");
+                }
             }
 
             // 2.2 Kiểm tra trùng giờ dạy với lớp khác trong cùng học kỳ
@@ -247,19 +276,26 @@ public class XepLichService(
                     .Where(x => dsLopKhacCuaGv.Contains(x.MaLopHocPhan))
                     .ToListAsync(cancellationToken);
 
-                foreach (var ctKhac in dsChiTietKhac)
+                var mapLopKhac = await context.LopHocPhan
+                    .Where(x => dsLopKhacCuaGv.Contains(x.MaLopHocPhan))
+                    .ToDictionaryAsync(x => x.MaLopHocPhan, cancellationToken);
+
+                foreach (var ctLop in dsCtLop)
                 {
-                    if (boKiemTra.CoTrungLich(
-                        ctLop.Thu, ctLop.TietBatDau, ctLop.TietKetThuc, ctLop.TuTuan, ctLop.DenTuan,
-                        ctKhac.Thu, ctKhac.TietBatDau, ctKhac.TietKetThuc, ctKhac.TuTuan, ctKhac.DenTuan))
+                    foreach (var ctKhac in dsChiTietKhac)
                     {
-                        var lopKhac = await context.LopHocPhan.FirstOrDefaultAsync(x => x.MaLopHocPhan == ctKhac.MaLopHocPhan, cancellationToken);
-                        string maLopKhac = lopKhac != null ? lopKhac.MaLopHocPhanTruong : $"#{ctKhac.MaLopHocPhan}";
-                        viPham.Add($"Trùng giờ dạy với lớp [{maLopKhac}] vào Thứ {ctLop.Thu}, tiết {Math.Max(ctLop.TietBatDau, ctKhac.TietBatDau)}-{Math.Min(ctLop.TietKetThuc, ctKhac.TietKetThuc)}.");
+                        if (boKiemTra.CoTrungLich(
+                            ctLop.Thu, ctLop.TietBatDau, ctLop.TietKetThuc, ctLop.TuTuan, ctLop.DenTuan,
+                            ctKhac.Thu, ctKhac.TietBatDau, ctKhac.TietKetThuc, ctKhac.TuTuan, ctKhac.DenTuan))
+                        {
+                            string maLopKhac = mapLopKhac.TryGetValue(ctKhac.MaLopHocPhan, out var lk) ? lk.MaLopHocPhanTruong : $"#{ctKhac.MaLopHocPhan}";
+                            viPham.Add($"Trùng giờ dạy buổi Thứ {ctLop.Thu} (tiết {ctLop.TietBatDau}-{ctLop.TietKetThuc}) với lớp [{maLopKhac}] (Thứ {ctKhac.Thu}, tiết {ctKhac.TietBatDau}-{ctKhac.TietKetThuc}).");
+                        }
                     }
                 }
             }
         }
+
 
         // Nếu có vi phạm và người dùng chưa xác nhận bỏ qua cảnh báo
         if (viPham.Count > 0 && !req.BoQuaCanhBao)

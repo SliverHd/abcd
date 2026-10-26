@@ -9,8 +9,13 @@ public class DuLieuXepLichDto
     public double? TyLeLaiGhep { get; set; }
     public double? TyLeDotBien { get; set; }
 
+    public int? RandomSeed { get; set; }
+    public int? KichThuocGiaiDau { get; set; }
+    public int? SoCaTheUuTu { get; set; }
+
     // Tham số cấu hình tối ưu cho CP-SAT (Google OR-Tools)
     public double? ThoiGianChayToiDa { get; set; } = 30.0;
     public int? SoLuongWorker { get; set; } = 1; // 1 luồng đảm bảo tính tất định 100%
     public double? KhoangCachToiUuGap { get; set; } = 0.01;
 }
+

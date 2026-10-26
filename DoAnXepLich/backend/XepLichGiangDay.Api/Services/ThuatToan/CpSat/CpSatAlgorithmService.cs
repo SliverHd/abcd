@@ -138,7 +138,10 @@ public class CpSatAlgorithmService(
             }
         }
 
-        // (H4) Khống chế định mức tiết dạy tối đa (Maximum Teaching Quota)
+        // (H4) Định mức tiết dạy tối đa (Maximum Teaching Quota)
+        // Thiết lập ngưỡng trần an toàn tuyệt đối và biến phạt vượt giờ (Soft Penalty)
+        // Giúp bộ giải không bị vô nghiệm khi khoa thiếu giảng viên cơ hữu (tổng tiết học kỳ vượt quota lý thuyết)
+        var dsMaxQuotaTheoGv = new Dictionary<int, int>();
         foreach (var (maGv, dsLopCuaGv) in lopTheoGv)
         {
             if (dsLopCuaGv.Count == 0) continue;
@@ -152,6 +155,7 @@ public class CpSatAlgorithmService(
             {
                 maxQuota = dm.SoTietToiDa;
             }
+            dsMaxQuotaTheoGv[maGv] = maxQuota;
 
             var dsBienGv = new List<BoolVar>();
             var dsSoTiet = new List<long>();
@@ -161,7 +165,8 @@ public class CpSatAlgorithmService(
                 dsSoTiet.Add(TinhSoTiet(maLop, boiCanh));
             }
 
-            model.Add(LinearExpr.WeightedSum(dsBienGv, dsSoTiet) <= maxQuota);
+            // Ngưỡng trần cứng tuyệt đối bảo vệ sức khỏe giảng viên (tối đa 40 tiết/tuần)
+            model.Add(LinearExpr.WeightedSum(dsBienGv, dsSoTiet) <= Math.Max(maxQuota + 16, 40));
         }
 
         // 5. THIẾT LẬP HÀM MỤC TIÊU TỐI ƯU HÓA RÀNG BUỘC MỀM (SOFT CONSTRAINTS)
@@ -262,9 +267,16 @@ public class CpSatAlgorithmService(
                 dsSoTiet.Add(TinhSoTiet(maLop, boiCanh));
             }
 
+            // Phạt thiếu tải (underload)
             var underload = model.NewIntVar(0, minQuota, $"underload_{maGv}");
             model.Add(LinearExpr.WeightedSum(dsBienGv, dsSoTiet) + underload >= minQuota);
             objectiveTerms.Add(underload * trongSoCanBang);
+
+            // Phạt vượt tải (overload) khi vượt quá định mức tối đa chuẩn
+            int maxQuota = dsMaxQuotaTheoGv.GetValueOrDefault(maGv, isThinhGiang ? 16 : 24);
+            var overload = model.NewIntVar(0, 50, $"overload_{maGv}");
+            model.Add(LinearExpr.WeightedSum(dsBienGv, dsSoTiet) - overload <= maxQuota);
+            objectiveTerms.Add(overload * (long)Math.Round(trongSoCanBang * 1.5));
         }
 
         // Đặt hàm mục tiêu tổng thể
@@ -348,27 +360,43 @@ public class CpSatAlgorithmService(
             {
                 ThuatToan = TenThuatToan,
                 TongDiemPhat = danhGia.TongDiemPhat,
+                DoThichNghi = danhGia.DoThichNghi,
+                DiemPhatRangBuocCung = danhGia.DiemPhatRangBuocCung,
+                DiemPhatNguyenVong = danhGia.DiemPhatNguyenVong,
+                DiemPhatCanBangTai = danhGia.DiemPhatCanBangTai,
+                DiemPhatGomLich = danhGia.DiemPhatGomLich,
+                SoViPhamCung = danhGia.SoViPhamCung,
+                SoLopChuaPhanCong = danhGia.SoLopChuaPhanCong,
                 TrangThai = status == CpSolverStatus.Optimal ? "ToiUuToanCuc" : "KhaThi",
                 ThoiGianChayGiay = Math.Round(stopwatch.Elapsed.TotalSeconds, 2),
+                ThoiGianChayMiligiay = stopwatch.ElapsedMilliseconds,
                 SoLuongBien = model.Model.Variables.Count,
                 SoLuongRangBuoc = model.Model.Constraints.Count,
                 ThongDiep = status == CpSolverStatus.Optimal
                     ? "Tìm thấy phương án tối ưu toàn cục (Optimal) thỏa mãn 100% ràng buộc cứng."
                     : "Tìm thấy phương án khả thi (Feasible) thỏa mãn 100% ràng buộc cứng.",
                 DanhSachPhanCong = dsPhanCongDto,
+                DanhSachViPham = danhGia.DanhSachViPham,
                 ChiTietViPham = danhGia.DanhSachCanhBaoMem
             };
         }
+
+        string lyDo = status == CpSolverStatus.Infeasible
+            ? "Bộ giải CP-SAT chứng minh bài toán không có nghiệm khả thi (Infeasible) do xung đột giữa các ràng buộc cứng (trùng lịch học, thiếu giảng viên đúng chuyên môn hoặc các lớp bị khóa cố định)."
+            : "Bộ giải CP-SAT hết thời gian tìm kiếm mà chưa tìm thấy phương án thỏa mãn toàn bộ ràng buộc cứng.";
 
         return new KetQuaXepLichDto
         {
             ThuatToan = TenThuatToan,
             TongDiemPhat = 0,
+            SoViPhamCung = 1,
             TrangThai = status == CpSolverStatus.Infeasible ? "VoNghiem" : "KhongTimThay",
             ThoiGianChayGiay = Math.Round(stopwatch.Elapsed.TotalSeconds, 2),
+            ThoiGianChayMiligiay = stopwatch.ElapsedMilliseconds,
             SoLuongBien = model.Model.Variables.Count,
             SoLuongRangBuoc = model.Model.Constraints.Count,
-            ThongDiep = "Bộ giải CP-SAT không tìm được phương án thỏa mãn đồng thời toàn bộ ràng buộc cứng (Infeasible)."
+            ThongDiep = lyDo,
+            DanhSachViPham = [lyDo]
         };
     }
 
