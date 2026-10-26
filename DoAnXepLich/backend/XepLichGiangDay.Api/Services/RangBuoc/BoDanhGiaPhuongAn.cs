@@ -336,32 +336,63 @@ public class BoDanhGiaPhuongAn
     }
 
     /// <summary>
-    /// Tính điểm phạt cân bằng tải: So khớp tổng số tiết/tuần với định mức min-max của giảng viên.
+    /// Tính điểm phạt cân bằng tải: So khớp tải tuần thực tế (xét theo từng tuần học tu_tuan -> den_tuan) với định mức trần 25 tiết/tuần của Nhà trường.
     /// </summary>
     public double TinhDiemCanBangTai(int maGiangVien, List<int> dsMaLopPhanCong, BoiCanhDanhGia boiCanh, out string canhBao)
     {
         canhBao = string.Empty;
-        if (maGiangVien <= 0) return 0;
+        if (maGiangVien <= 0 || dsMaLopPhanCong.Count == 0) return 0;
 
-        int tongSoTietTuan = 0;
+        var cacBuoiHoc = new List<ChiTietThoiKhoaBieu>();
         foreach (var maLop in dsMaLopPhanCong)
         {
             if (boiCanh.ChiTietTheoLop.TryGetValue(maLop, out var dsCt))
             {
-                foreach (var ct in dsCt)
+                cacBuoiHoc.AddRange(dsCt);
+            }
+        }
+        if (cacBuoiHoc.Count == 0) return 0;
+
+        // Xác định khoảng tuần học của các lớp
+        int minTuanHk = cacBuoiHoc.Min(b => b.TuTuan > 0 ? b.TuTuan : 1);
+        int maxTuanHk = cacBuoiHoc.Max(b => b.DenTuan > 0 ? b.DenTuan : 20);
+        if (minTuanHk <= 0) minTuanHk = 1;
+        if (maxTuanHk < minTuanHk) maxTuanHk = minTuanHk;
+
+        // Tính số tiết thực tế theo từng tuần cụ thể (không cộng dồn các lớp học khác tuần)
+        int maxTietTuan = 0; // Tuần cao điểm nhất (Peak week load)
+        int tongTietToanKy = 0;
+        int soTuanCoDay = 0;
+
+        for (int w = minTuanHk; w <= maxTuanHk; w++)
+        {
+            int soTietTuanW = 0;
+            foreach (var b in cacBuoiHoc)
+            {
+                if (w >= b.TuTuan && w <= b.DenTuan)
                 {
-                    tongSoTietTuan += (ct.TietKetThuc >= ct.TietBatDau ? ct.TietKetThuc - ct.TietBatDau + 1 : 0);
+                    soTietTuanW += (b.TietKetThuc >= b.TietBatDau ? b.TietKetThuc - b.TietBatDau + 1 : 0);
+                }
+            }
+
+            if (soTietTuanW > 0)
+            {
+                soTuanCoDay++;
+                tongTietToanKy += soTietTuanW;
+                if (soTietTuanW > maxTietTuan)
+                {
+                    maxTietTuan = soTietTuanW;
                 }
             }
         }
 
-        // Định mức ngầm định: Cơ hữu 6 - 15 tiết/tuần; Thỉnh giảng 3 - 12 tiết/tuần
+        // Định mức chuẩn theo quy chế Nhà trường (Mục 1.4: Không quá 25 tiết/tuần đối với GV cơ hữu, 16 đối với thỉnh giảng)
         bool isThinhGiang = boiCanh.GiangVienTheoMa.TryGetValue(maGiangVien, out var gv) &&
             ((gv.ChucDanh != null && gv.ChucDanh.Contains("Thỉnh giảng", StringComparison.OrdinalIgnoreCase)) ||
              gv.HoTen.Contains("Thỉnh giảng", StringComparison.OrdinalIgnoreCase));
 
         int minTiet = isThinhGiang ? 3 : 6;
-        int maxTiet = isThinhGiang ? 12 : 16;
+        int maxTiet = isThinhGiang ? 16 : 25;
 
         if (boiCanh.DinhMucTheoGv.TryGetValue(maGiangVien, out var dm))
         {
@@ -375,19 +406,19 @@ public class BoDanhGiaPhuongAn
             }
         }
 
-
         string tenGv = gv?.HoTen ?? $"GV #{maGiangVien}";
         double diemPhat = 0;
+        double taiTrungBinhTuan = soTuanCoDay > 0 ? (double)tongTietToanKy / soTuanCoDay : 0;
 
-        if (tongSoTietTuan < minTiet)
+        if (maxTietTuan > maxTiet)
         {
-            diemPhat = (minTiet - tongSoTietTuan) * boiCanh.TrongSoCanBangTai;
-            canhBao = $"{tenGv} bị thiếu tải ({tongSoTietTuan}/{minTiet} tiết/tuần).";
+            diemPhat = (maxTietTuan - maxTiet) * boiCanh.TrongSoCanBangTai * 1.5;
+            canhBao = $"{tenGv} bị quá tải ({maxTietTuan}/{maxTiet} tiết/tuần ở tuần cao điểm).";
         }
-        else if (tongSoTietTuan > maxTiet)
+        else if (taiTrungBinhTuan < minTiet && soTuanCoDay > 0)
         {
-            diemPhat = (tongSoTietTuan - maxTiet) * boiCanh.TrongSoCanBangTai * 1.5;
-            canhBao = $"{tenGv} bị quá tải ({tongSoTietTuan}/{maxTiet} tiết/tuần).";
+            diemPhat = (minTiet - taiTrungBinhTuan) * boiCanh.TrongSoCanBangTai;
+            canhBao = $"{tenGv} bị thiếu tải ({Math.Round(taiTrungBinhTuan, 1)}/{minTiet} tiết/tuần trung bình).";
         }
 
         return diemPhat;
@@ -399,7 +430,7 @@ public class BoDanhGiaPhuongAn
     }
 
     /// <summary>
-    /// Tính điểm phạt gom lịch: Phạt tiết trống giữa ca trong cùng ngày có giao tuần, phạt rải lịch nhiều ngày trong tuần.
+    /// Tính điểm phạt gom lịch: Phạt tiết trống giữa ca trong cùng ngày có giao tuần, phạt rải lịch nhiều ngày trong một tuần thực tế.
     /// </summary>
     public double TinhDiemGomLich(int maGiangVien, List<int> dsMaLopPhanCong, BoiCanhDanhGia boiCanh, out string canhBao)
     {
@@ -420,22 +451,19 @@ public class BoDanhGiaPhuongAn
         string tenGv = boiCanh.GiangVienTheoMa.TryGetValue(maGiangVien, out var gv) ? gv.HoTen : $"GV #{maGiangVien}";
         double diemPhat = 0;
 
-        // Kiểm tra xem GV có nguyện vọng gom lịch SC07 không
         bool coNguyenVongGomLich = boiCanh.NguyenVongTheoGv.TryGetValue(maGiangVien, out var dsNv) &&
             dsNv.Any(nv => nv.LoaiNguyenVong?.Trim().Equals("SC07", StringComparison.OrdinalIgnoreCase) == true);
         double heSoGomLich = coNguyenVongGomLich ? 1.5 : 1.0;
 
-        // 1. Phạt tiết trống giữa ca trong cùng một ngày (chỉ tính nếu 2 buổi học có tuần giao nhau)
+        // 1. Phạt tiết trống giữa ca trong cùng một ngày (chỉ tính nếu 2 buổi học có tuần giao nhau thực tế)
         var buoiTheoThu = cacBuoiHoc.GroupBy(x => x.Thu);
         foreach (var groupThu in buoiTheoThu)
         {
             var dsSapXep = groupThu.OrderBy(x => x.TietBatDau).ToList();
-            int tongTietTrongNgay = 0;
 
             for (int i = 0; i < dsSapXep.Count; i++)
             {
                 var b1 = dsSapXep[i];
-                tongTietTrongNgay += (b1.TietKetThuc >= b1.TietBatDau ? b1.TietKetThuc - b1.TietBatDau + 1 : 0);
 
                 if (i < dsSapXep.Count - 1)
                 {
@@ -455,24 +483,46 @@ public class BoDanhGiaPhuongAn
                     }
                 }
             }
+        }
 
-            // SC06: Phạt nếu 1 ngày dạy quá nhiều tiết (> 6 tiết/ngày gây mệt mỏi)
-            if (tongTietTrongNgay > 6)
+        // 2. Phạt nếu số ngày dạy trong MỘT TUẦN THỰC TẾ quá nhiều (rải rác > 3 ngày/tuần ở cùng một tuần)
+        int minTuanHk = cacBuoiHoc.Min(b => b.TuTuan > 0 ? b.TuTuan : 1);
+        int maxTuanHk = cacBuoiHoc.Max(b => b.DenTuan > 0 ? b.DenTuan : 20);
+        int maxNgayDayTrongTuan = 0;
+
+        for (int w = minTuanHk; w <= maxTuanHk; w++)
+        {
+            var dsThuTrongTuan = new HashSet<int>();
+            int tongTietTuanW = 0;
+            foreach (var b in cacBuoiHoc)
             {
-                diemPhat += (tongTietTrongNgay - 6) * (boiCanh.TrongSoGomLich * 0.6);
+                if (w >= b.TuTuan && w <= b.DenTuan)
+                {
+                    dsThuTrongTuan.Add(b.Thu);
+                    tongTietTuanW += (b.TietKetThuc >= b.TietBatDau ? b.TietKetThuc - b.TietBatDau + 1 : 0);
+                }
+            }
+
+            if (dsThuTrongTuan.Count > maxNgayDayTrongTuan)
+            {
+                maxNgayDayTrongTuan = dsThuTrongTuan.Count;
+            }
+
+            // Phạt nếu 1 ngày dạy quá nhiều tiết (> 6 tiết/ngày trong cùng tuần w)
+            if (tongTietTuanW > 6 && dsThuTrongTuan.Count == 1)
+            {
+                diemPhat += (tongTietTuanW - 6) * (boiCanh.TrongSoGomLich * 0.6);
             }
         }
 
-        // 2. Phạt nếu số ngày dạy trong tuần quá nhiều (rải rác)
-        int soNgayDay = buoiTheoThu.Count();
-        int nguongNgayToiDa = dsMaLopPhanCong.Count <= 2 ? dsMaLopPhanCong.Count : 3;
-        if (soNgayDay > nguongNgayToiDa)
+        int nguongNgayToiDa = 3; // Tiêu chuẩn gom lịch: tối đa 3 ngày/tuần
+        if (maxNgayDayTrongTuan > nguongNgayToiDa)
         {
-            int ngayLech = soNgayDay - nguongNgayToiDa;
+            int ngayLech = maxNgayDayTrongTuan - nguongNgayToiDa;
             diemPhat += ngayLech * (boiCanh.TrongSoGomLich * heSoGomLich);
             if (string.IsNullOrEmpty(canhBao))
             {
-                canhBao = $"{tenGv} bị rải lịch dạy ({soNgayDay} ngày trong tuần).";
+                canhBao = $"{tenGv} bị rải lịch dạy ({maxNgayDayTrongTuan} ngày/tuần ở tuần cao điểm).";
             }
         }
 
