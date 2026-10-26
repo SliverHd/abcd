@@ -203,6 +203,14 @@ public class BoDanhGiaPhuongAn
             {
                 ketQua.DanhSachCanhBaoMem.Add(canhBaoGl);
             }
+
+            // 2.4 Điểm hồi phục sức khỏe (Mục 2.3 trong đặc tả Nhà trường: >= 10h giữa ca tối và ca sáng hôm sau)
+            var diemHp = TinhDiemHoiPhucSucKhoe(maGv, dsLopCuaGv, boiCanh, out var canhBaoHp);
+            ketQua.DiemPhatNguyenVong += diemHp;
+            if (!string.IsNullOrEmpty(canhBaoHp))
+            {
+                ketQua.DanhSachCanhBaoMem.Add(canhBaoHp);
+            }
         }
 
         // 3. TỔNG HỢP ĐIỂM PHẠT VÀ ĐỘ THÍCH NGHI (FITNESS PHÂN TẦNG)
@@ -532,6 +540,61 @@ public class BoDanhGiaPhuongAn
     public double TinhDiemGomLich(int maGiangVien, List<int> dsMaLopPhanCong, BoiCanhDanhGia boiCanh)
     {
         return TinhDiemGomLich(maGiangVien, dsMaLopPhanCong, boiCanh, out _);
+    }
+
+    /// <summary>
+    /// Tính điểm phạt vi phạm thời gian hồi phục sức khỏe (< 10 tiếng giữa ca tối hôm trước kết thúc 21h và ca sáng hôm sau bắt đầu 7h).
+    /// Tuân thủ Mục 2.3 trong Đặc tả Ràng buộc của Nhà trường.
+    /// </summary>
+    public double TinhDiemHoiPhucSucKhoe(int maGiangVien, List<int> dsMaLopPhanCong, BoiCanhDanhGia boiCanh, out string canhBao)
+    {
+        canhBao = string.Empty;
+        if (maGiangVien <= 0 || dsMaLopPhanCong.Count <= 1) return 0;
+
+        var cacBuoiHoc = new List<ChiTietThoiKhoaBieu>();
+        foreach (var maLop in dsMaLopPhanCong)
+        {
+            if (boiCanh.ChiTietTheoLop.TryGetValue(maLop, out var dsCt))
+            {
+                cacBuoiHoc.AddRange(dsCt);
+            }
+        }
+        if (cacBuoiHoc.Count <= 1) return 0;
+
+        double diemPhat = 0;
+        string tenGv = boiCanh.GiangVienTheoMa.TryGetValue(maGiangVien, out var gv) ? gv.HoTen : $"GV #{maGiangVien}";
+
+        for (int i = 0; i < cacBuoiHoc.Count; i++)
+        {
+            for (int j = 0; j < cacBuoiHoc.Count; j++)
+            {
+                if (i == j) continue;
+                var bt = cacBuoiHoc[i]; // Ca tối hôm trước
+                var bs = cacBuoiHoc[j]; // Ca sáng hôm sau
+
+                // Tiết kết thúc >= 10 (21h), ca sáng hôm sau: Thu == bt.Thu + 1, bắt đầu tiết <= 2 (7h-7h50)
+                if (bt.TietKetThuc >= 10 && bs.Thu == bt.Thu + 1 && bs.TietBatDau <= 2)
+                {
+                    // Chỉ phạt nếu 2 buổi học có tuần giao nhau thực tế
+                    bool giaoTuan = Math.Max(bt.TuTuan, bs.TuTuan) <= Math.Min(bt.DenTuan, bs.DenTuan);
+                    if (giaoTuan)
+                    {
+                        diemPhat += boiCanh.TrongSoNguyenVong * 1.5;
+                        if (string.IsNullOrEmpty(canhBao))
+                        {
+                            canhBao = $"{tenGv} vi phạm thời gian hồi phục sức khỏe (<10h) giữa ca tối Thứ {bt.Thu} (tiết {bt.TietKetThuc}) và ca sáng Thứ {bs.Thu} (tiết {bs.TietBatDau}).";
+                        }
+                    }
+                }
+            }
+        }
+
+        return diemPhat;
+    }
+
+    public double TinhDiemHoiPhucSucKhoe(int maGiangVien, List<int> dsMaLopPhanCong, BoiCanhDanhGia boiCanh)
+    {
+        return TinhDiemHoiPhucSucKhoe(maGiangVien, dsMaLopPhanCong, boiCanh, out _);
     }
 
     /// <summary>

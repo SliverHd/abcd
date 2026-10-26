@@ -150,7 +150,7 @@ public class CpSatAlgorithmService(
                 ((gv.ChucDanh != null && gv.ChucDanh.Contains("Thỉnh giảng", StringComparison.OrdinalIgnoreCase)) ||
                  gv.HoTen.Contains("Thỉnh giảng", StringComparison.OrdinalIgnoreCase));
 
-            int maxQuota = isThinhGiang ? 16 : 24;
+            int maxQuota = isThinhGiang ? 16 : 25;
             if (boiCanh.DinhMucTheoGv.TryGetValue(maGv, out var dm) && dm.SoTietToiDa > 0)
             {
                 maxQuota = dm.SoTietToiDa;
@@ -273,7 +273,7 @@ public class CpSatAlgorithmService(
             objectiveTerms.Add(underload * trongSoCanBang);
 
             // Phạt vượt tải (overload) khi vượt quá định mức tối đa chuẩn
-            int maxQuota = dsMaxQuotaTheoGv.GetValueOrDefault(maGv, isThinhGiang ? 16 : 24);
+            int maxQuota = dsMaxQuotaTheoGv.GetValueOrDefault(maGv, isThinhGiang ? 16 : 25);
             var overload = model.NewIntVar(0, 50, $"overload_{maGv}");
             model.Add(LinearExpr.WeightedSum(dsBienGv, dsSoTiet) - overload <= maxQuota);
             objectiveTerms.Add(overload * (long)Math.Round(trongSoCanBang * 1.5));
